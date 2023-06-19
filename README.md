@@ -8,6 +8,7 @@ A minimalistic approach to [spf13/viper](https://github.com/spf13/viper).
 - Read `ENV` variables into a `struct`
 - Read a `.env` file into a `struct`
 - `< 100` source lines of code
+- [No dependencies](go.mod)
 
 Only string fields are supported. 
 
