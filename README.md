@@ -7,7 +7,7 @@ A minimalistic approach to [spf13/viper](https://github.com/spf13/viper).
 ## Features
 - Read `ENV` variables into a `struct`
 - Read a `.env` file into a `struct`
-- `< 100` source lines of code
+- `< 110` source lines of code
 - [No dependencies](go.mod)
 
 Only string fields are supported. 
@@ -15,6 +15,13 @@ Only string fields are supported.
 ## Usage
 
 ```go
+package main
+
+import (
+	"github.com/nobloat/tinyviper"
+	"fmt"
+)
+
 type Config struct {
 	UserConfig struct {
 		Email    string `env:"MY_APP_EMAIL"`
@@ -25,8 +32,8 @@ type Config struct {
 }
 
 func main() {
-  //cfg, err := NewEnvConfig[Config]()  //Read from env
-  cfg, err := NewEnvFileConfig[Config](".env.sample") //Read from .env file
+  cfg := Config{}
+  cfg, err := tinyviper.LoadFromResolver(&cfg, tinyviper.EnvResolver{}, tinyviper.NewEnvFileResolver(".env.sample"))
   if err != nil {
     panic(err)
   }

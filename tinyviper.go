@@ -11,67 +11,69 @@ import (
 type Resolver interface {
 	Get(key string) string
 }
-
 type EnvResolver struct{}
-
 type EnvFileResolver struct {
 	Variables map[string]string
-}
-
-func NewEnvFileResolver(filename string) (*EnvFileResolver, error) {
-	readFile, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	r := &EnvFileResolver{make(map[string]string, 0)}
-	fileScanner := bufio.NewScanner(readFile)
-	fileScanner.Split(bufio.ScanLines)
-	for fileScanner.Scan() {
-		text := fileScanner.Text()
-		parts := strings.Split(text, "=")
-		if len(parts) != 2 || strings.HasPrefix(text, "#") {
-			continue
-		}
-		r.Variables[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
-	}
-	return r, readFile.Close()
 }
 
 func (e EnvFileResolver) Get(key string) string {
 	return e.Variables[key]
 }
-
 func (e EnvResolver) Get(key string) string {
 	return os.Getenv(key)
 }
 
-func NewEnvConfig[T any]() (*T, error) {
-	cfg := new(T)
-	res := EnvResolver{}
-	err := ReflectStruct(cfg, res)
-	if err != nil {
-		return nil, err
-	}
-	return cfg, nil
+type multiResolver struct {
+	resolvers []Resolver
 }
 
-func NewEnvFileConfig[T any](filename string) (*T, error) {
-	cfg := new(T)
-	res, err := NewEnvFileResolver(filename)
+func NewEnvFileResolver(filename string) *EnvFileResolver {
+	readFile, err := os.Open(filename)
 	if err != nil {
-		return nil, err
+		return nil
 	}
-	err = ReflectStruct(cfg, res)
-	if err != nil {
-		return nil, err
+	defer readFile.Close()
+	r := &EnvFileResolver{make(map[string]string, 0)}
+	fileScanner := bufio.NewScanner(readFile)
+	fileScanner.Split(bufio.ScanLines)
+	for fileScanner.Scan() {
+		text := fileScanner.Text()
+		index := strings.Index(text, "=")
+		if index == -1 || strings.HasPrefix(text, "#") {
+			continue
+		}
+		r.Variables[text[0:index]] = strings.Trim(text[index+1:], " \"'")
 	}
-	return cfg, nil
+	return r
 }
 
-func ReflectStruct(object any, resolver Resolver) error {
+func (m multiResolver) Get(key string) string {
+	for _, r := range m.resolvers {
+		v := r.Get(key)
+		if r.Get(key) != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func LoadFromResolver[T any](cfg *T, resolver ...Resolver) error {
+	res := multiResolver{resolvers: resolver}
+	missing := make([]string, 0)
+	missing, err := refelectStruct(cfg, res, missing)
+	if err != nil {
+		return err
+	}
+	if len(missing) > 0 {
+		return errors.New("missing config variables: " + strings.Join(missing, ","))
+	}
+	return nil
+}
+
+func refelectStruct(object any, resolver Resolver, missing []string) ([]string, error) {
 	v := reflect.ValueOf(object)
 	if v.Elem().Kind() != reflect.Struct {
-		return errors.New("type must be a struct")
+		return missing, errors.New("type must be a struct")
 	}
 	e := v.Elem()
 	t := e.Type()
@@ -81,22 +83,24 @@ func ReflectStruct(object any, resolver Resolver) error {
 		envName := tf.Tag.Get("env")
 		if envName != "" {
 			if tf.Type != reflect.TypeOf("") {
-				return errors.New("env annotated field must have type string")
+				return missing, errors.New("env annotated field must have type string")
 			}
 			if !ef.CanSet() {
-				return errors.New("env field must be public")
+				return missing, errors.New("env field must be public")
 			}
 			value := resolver.Get(envName)
-			if value == "" {
-				return errors.New("env variable " + envName + " is not set")
+			if value != "" {
+				ef.SetString(resolver.Get(envName))
+			} else if ef.String() == "" {
+				missing = append(missing, envName)
 			}
-			ef.SetString(resolver.Get(envName))
 		} else if t.Kind() == reflect.Struct {
-			err := ReflectStruct(ef.Addr().Interface(), resolver)
+			m, err := refelectStruct(ef.Addr().Interface(), resolver, missing)
 			if err != nil {
-				return err
+				return missing, err
 			}
+			missing = append(missing, m...)
 		}
 	}
-	return nil
+	return missing, nil
 }
