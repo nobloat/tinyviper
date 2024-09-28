@@ -1,4 +1,4 @@
-# tiny-viper WIP
+# tiny-viper
 
 ![ci workflow](https://github.com/nobloat/tiny-viper/actions/workflows/ci.yml/badge.svg)
 
