@@ -33,7 +33,7 @@ type Config struct {
 
 func main() {
   cfg := Config{}
-  cfg, err := tinyviper.LoadFromResolver(&cfg, tinyviper.EnvResolver{}, tinyviper.NewEnvFileResolver(".env.sample"))
+  err := tinyviper.LoadFromResolver(&cfg, tinyviper.EnvResolver{}, tinyviper.NewEnvFileResolver(".env.sample"))
   if err != nil {
     panic(err)
   }
