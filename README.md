@@ -32,8 +32,8 @@ type Config struct {
 }
 
 func main() {
-  cfg := Config{}
-  err := tinyviper.LoadFromResolver(&cfg, tinyviper.EnvResolver{}, tinyviper.NewEnvFileResolver(".env.sample"))
+  cfg := Config{Endpoint: "some default endpoint"}
+  err := tinyviper.LoadFromResolver(&cfg, tinyviper.NewEnvResolver(), tinyviper.NewEnvFileResolver(".env.sample"))
   if err != nil {
     panic(err)
   }
