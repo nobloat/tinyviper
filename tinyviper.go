@@ -27,13 +27,17 @@ type multiResolver struct {
 	resolvers []Resolver
 }
 
-func NewEnvFileResolver(filename string) *EnvFileResolver {
+func NewEnvResolver() Resolver {
+	return EnvResolver{}
+}
+
+func NewEnvFileResolver(filename string) Resolver {
 	readFile, err := os.Open(filename)
 	if err != nil {
-		return nil
+		return EnvFileResolver{make(map[string]string)}
 	}
 	defer readFile.Close()
-	r := &EnvFileResolver{make(map[string]string, 0)}
+	r := EnvFileResolver{make(map[string]string, 0)}
 	fileScanner := bufio.NewScanner(readFile)
 	fileScanner.Split(bufio.ScanLines)
 	for fileScanner.Scan() {
@@ -49,6 +53,9 @@ func NewEnvFileResolver(filename string) *EnvFileResolver {
 
 func (m multiResolver) Get(key string) string {
 	for _, r := range m.resolvers {
+		if r == nil {
+			continue
+		}
 		v := r.Get(key)
 		if r.Get(key) != "" {
 			return v

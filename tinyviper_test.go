@@ -2,6 +2,7 @@ package tinyviper
 
 import (
 	"errors"
+	"os"
 	"testing"
 )
 
@@ -10,8 +11,9 @@ type Config struct {
 		Email    string `env:"MY_APP_EMAIL"`
 		Password string `env:"MY_APP_PASSWORD"`
 	}
-	Endpoint string `env:"MY_APP_ENDPOINT"`
-	AppUrl   string `env:"MY_APP_URL"`
+	Endpoint  string `env:"MY_APP_ENDPOINT"`
+	AppUrl    string `env:"MY_APP_URL"`
+	Undefined string `env:"MY_UNDEFINED"`
 }
 
 type testEnvResolver struct{}
@@ -28,7 +30,9 @@ func (t testEnvResolver) Get(key string) string {
 }
 
 func TestConfigErrors(t *testing.T) {
-	cfg := Config{}
+	cfg := Config{
+		Undefined: "foo",
+	}
 	err := LoadFromResolver(&cfg, testEnvResolver{})
 	if err == nil {
 		t.Fatalf("Expected error, got none")
@@ -39,8 +43,10 @@ func TestConfigErrors(t *testing.T) {
 }
 
 func TestConfigNew(t *testing.T) {
-	cfg := Config{}
-	err := LoadFromResolver(&cfg, EnvResolver{}, NewEnvFileResolver(".env.sample"))
+	cfg := Config{
+		Undefined: "foo",
+	}
+	err := LoadFromResolver(&cfg, NewEnvResolver(), NewEnvFileResolver(".env.sample"))
 	if err != nil {
 		t.Error(err)
 	}
@@ -55,5 +61,42 @@ func TestConfigNew(t *testing.T) {
 	}
 	if cfg.AppUrl != "https://some.exmpale.org/foo?token=bar" {
 		t.Error(errors.New("unexpected url"))
+	}
+}
+
+func TestConfigNewWithoutFile(t *testing.T) {
+	cfg := Config{
+		Undefined: "foo",
+	}
+	err := LoadFromResolver(&cfg, EnvResolver{}, NewEnvFileResolver(".env.sample2"))
+	if err == nil {
+		t.Fatalf("Expected error, got none")
+	}
+	if err.Error() != "missing config variables: MY_APP_EMAIL,MY_APP_PASSWORD,MY_APP_ENDPOINT,MY_APP_URL" {
+		t.Error("Expected error, got wrong one: " + err.Error())
+	}
+}
+
+func TestConfigOverride(t *testing.T) {
+	_ = os.Setenv("MY_APP_EMAIL", "someemail2@someprovider.org")
+
+	cfg := Config{
+		Undefined: "foo",
+	}
+	err := LoadFromResolver(&cfg, NewEnvResolver(), NewEnvFileResolver(".env.sample"))
+	if err != nil {
+		t.Error(err)
+	}
+
+	if cfg.UserConfig.Email != "someemail2@someprovider.org" {
+		t.Error(errors.New("unexpected email"))
+	}
+
+	if cfg.Undefined != "foo" {
+		t.Error(errors.New("unexpected app url"))
+	}
+
+	if cfg.UserConfig.Password != "password2" {
+		t.Error(errors.New("unexpected password"))
 	}
 }
