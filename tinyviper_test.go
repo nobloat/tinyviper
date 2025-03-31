@@ -14,6 +14,18 @@ type Config struct {
 	Endpoint  string `env:"MY_APP_ENDPOINT"`
 	AppUrl    string `env:"MY_APP_URL"`
 	Undefined string `env:"MY_UNDEFINED"`
+	Optional  string `env:"MY_APP_OPTIONAL,omitempty"`
+}
+
+type Config2 struct {
+	UserConfig struct {
+		Email    string `env:"MY_APP_EMAIL"`
+		Password string `env:"MY_APP_PASSWORD"`
+	}
+	Endpoint  string `env:"MY_APP_ENDPOINT"`
+	AppUrl    string `env:"MY_APP_URL"`
+	Undefined string `env:"MY_UNDEFINED"`
+	Optional  string `env:"MY_APP_OPTIONAL"`
 }
 
 type testEnvResolver struct{}
@@ -98,5 +110,39 @@ func TestConfigOverride(t *testing.T) {
 
 	if cfg.UserConfig.Password != "password2" {
 		t.Error(errors.New("unexpected password"))
+	}
+
+	if cfg.Optional != "" {
+		t.Error(errors.New("unexpected optional"))
+	}
+}
+
+func TestConfigNoOmitMissingVariable(t *testing.T) {
+	cfg := Config2{
+		Undefined: "foo",
+	}
+
+	err := LoadFromResolver(&cfg, NewEnvResolver(), NewEnvFileResolver(".env.sample"))
+	if err == nil {
+		t.Fatalf("Expected error, got none")
+	}
+
+	if err.Error() != "missing config variables: MY_APP_OPTIONAL" {
+		t.Error("Expected error, got wrong one: " + err.Error())
+	}
+}
+
+func TestConfigOmitVariableDefined(t *testing.T) {
+	cfg := Config{
+		Undefined: "foo",
+	}
+
+	err := LoadFromResolver(&cfg, NewEnvResolver(), NewEnvFileResolver(".env.sample3"))
+	if err != nil {
+		t.Error(err)
+	}
+
+	if cfg.Optional != "optional" {
+		t.Error(errors.New("unexpected optional"))
 	}
 }
