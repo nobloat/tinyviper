@@ -89,6 +89,17 @@ func refelectStruct(object any, resolver Resolver, missing []string) ([]string, 
 		tf := t.Field(i)
 		envName := tf.Tag.Get("env")
 		if envName != "" {
+			omitEmpty := strings.Contains(envName, "omitempty")
+			if omitEmpty {
+				index := strings.Index(envName, ",")
+
+				if index != -1 {
+					envName = envName[:index]
+				} else {
+					return missing, errors.New("omit empty missing ',' after env name")
+				}
+			}
+
 			if tf.Type != reflect.TypeOf("") {
 				return missing, errors.New("env annotated field must have type string")
 			}
@@ -98,7 +109,7 @@ func refelectStruct(object any, resolver Resolver, missing []string) ([]string, 
 			value := resolver.Get(envName)
 			if value != "" {
 				ef.SetString(resolver.Get(envName))
-			} else if ef.String() == "" {
+			} else if ef.String() == "" && !omitEmpty {
 				missing = append(missing, envName)
 			}
 		} else if t.Kind() == reflect.Struct {

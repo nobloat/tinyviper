@@ -11,7 +11,7 @@ A minimalistic approach to [spf13/viper](https://github.com/spf13/viper).
 - [No dependencies](go.mod)
 
 Only string fields are supported. 
-
+Allows missing env variables when marked with "omitempty"
 ## Usage
 
 ```go
@@ -29,6 +29,7 @@ type Config struct {
         someOtherProperty string
 	}
 	Endpoint string `env:"MY_APP_ENDPOINT"`
+  AppUrl string `env:MY_APP_URL,omitempty`
 }
 
 func main() {
